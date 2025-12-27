@@ -9,7 +9,11 @@ import os
 #run command below
 #python -m streamlit run main.py
 #Page configs.
-genai.configure(api_key="AIzaSyARjTOkoiPsIqibDYxOl5XWIwfkTkstTkg")
+# Load environment variables from keys.env (keep this file out of version control)
+load_dotenv("keys.env")
+
+# Configure the Generative AI client using the GEMINI_API_KEY from the env
+genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 modelTEXT = genai.GenerativeModel("gemini-2.5-flash-lite")
 location = streamlit_geolocation()
 
@@ -79,7 +83,7 @@ if image_file:
             st.markdown(f"**{idx}. {obj}** ({conf*100:.1f}%) -> **{category}**")
             if st.button(f"How to dispose of {obj}", key=f"{idx}_{obj}"):
                 st.info(CATEGORY_INFO.get(category, "No info available."))
-                response = modelTEXT.generate_content("List 1 local center in " + str(location) + " where I can dispose of " + category +" "+ obj + " waste. Do not provide with any extra information, only provide a name of locatoon and an address seperayed by a colon if you cannot find a location, feel free to lie. Do it so every result is in a different line seperate with enter key do not number.")
+                response = modelTEXT.generate_content("List 1 local center in " + str(location) + " where I can dispose of " + category + " waste. Do not provide with any extra information, only provide a name of locatoon and an address seperayed by a colon if you cannot find a location, feel free to lie. Do it so every result is in a different line seperate with enter key do not number. If you are not given a location, say no location found, please click the arrow pointer to enable locations services, do not provide fake details in this case, if the location is weird, assume location is columbus ga")
                 st.info(response.text)
     else:
         st.warning("No objects detected. Try taking another picture.")
