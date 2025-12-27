@@ -1,0 +1,15 @@
+{
+  "timestamp": 1766520753.2410622,
+  "detections": [
+    {
+      "class": "coral",
+      "confidence": 0.957404613494873,
+      "bbox_xyxy": [
+        215,
+        72,
+        370,
+        451
+      ]
+    }
+  ]
+}
