@@ -1,0 +1,13 @@
+train: ../train/images
+val: ../valid/images
+test: ../test/images
+
+nc: 4
+names: ['ELBOW45', 'ELBOW90', 'EQUALCROSS', 'EQUALTEE']
+
+roboflow:
+  workspace: paologamer270
+  project: pvc-classification
+  version: 4
+  license: CC BY 4.0
+  url: https://universe.roboflow.com/paologamer270/pvc-classification/dataset/4

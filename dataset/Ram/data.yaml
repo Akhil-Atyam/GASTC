@@ -1,0 +1,13 @@
+train: ../train/images
+val: ../valid/images
+test: ../test/images
+
+nc: 1
+names: ['Ram']
+
+roboflow:
+  workspace: saida-ljvql
+  project: ram-epwwy
+  version: 1
+  license: CC BY 4.0
+  url: https://universe.roboflow.com/saida-ljvql/ram-epwwy/dataset/1

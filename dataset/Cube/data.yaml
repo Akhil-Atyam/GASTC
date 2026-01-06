@@ -1,0 +1,13 @@
+train: ../train/images
+val: ../valid/images
+test: ../test/images
+
+nc: 2
+names: ['Nothing', 'Rubiks Cube']
+
+roboflow:
+  workspace: higgs-boyce
+  project: rubiks-cube-d6sqp
+  version: 3
+  license: CC BY 4.0
+  url: https://universe.roboflow.com/higgs-boyce/rubiks-cube-d6sqp/dataset/3

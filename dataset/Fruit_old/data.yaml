@@ -1,0 +1,13 @@
+train: ../train/images
+val: ../valid/images
+test: ../test/images
+
+nc: 3
+names: ['Apel', 'Jeruk', 'Pisang']
+
+roboflow:
+  workspace: muh-zulkifli
+  project: fruit-vhhuq
+  version: 1
+  license: CC BY 4.0
+  url: https://universe.roboflow.com/muh-zulkifli/fruit-vhhuq/dataset/1

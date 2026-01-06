@@ -1,0 +1,13 @@
+train: ../train/images
+val: ../valid/images
+test: ../test/images
+
+nc: 4
+names: ['Apple', 'Banana', 'Carrot', 'Orange']
+
+roboflow:
+  workspace: tugas-ai-7eegc
+  project: fruit-udhqb
+  version: 1
+  license: CC BY 4.0
+  url: https://universe.roboflow.com/tugas-ai-7eegc/fruit-udhqb/dataset/1

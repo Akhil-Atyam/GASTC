@@ -1,5 +1,5 @@
 from ultralytics import YOLO
 
-model = YOLO('best.pt')
-source = 'webcam_photo.jpg'
-results = model(source = source, show=True, save=True, project='runs/detect', name='webcam_photo',exist_ok=True)
+model = YOLO('../runs/train/Cube model/weights/best.pt')
+source = 0
+results = model(source = source, show=True, save=True, project='runs/detect', name='webcam_photo',exist_ok=True, conf=0.6)
