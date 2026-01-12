@@ -6,18 +6,14 @@ import numpy as np
 import google.generativeai as genai
 from dotenv import load_dotenv
 import os
-#run command below
-#python -m streamlit run main.py
-#Page configs.
-# Load environment variables from keys.env (keep this file out of version control)
-load_dotenv("keys.env")
 
-# Configure the Generative AI client using the GEMINI_API_KEY from the env
+# Load environment variables
+load_dotenv("keys.env")
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 modelTEXT = genai.GenerativeModel("gemini-2.5-flash-lite")
 location = streamlit_geolocation()
 
-
+# Streamlit page configuration
 st.set_page_config(
     page_title="GASTC TEST",
     page_icon="🚮",
@@ -26,13 +22,12 @@ st.set_page_config(
 st.title('GASTC test')
 image_file = st.camera_input("Take a picture")
 
-#waste configs
+# Waste category mapping
 WASTE_MAP = {
-    "algae": "Compost",
     "coral": "General",
-}
-LABEL_ALIAS = { #this is to make some labels more readable considering roboflow names
-    "batteries - v1 2023-02-21 10-20pm": "battery"
+    "Battery": "Hazard",
+    "cube": "General",
+    "fruit": "Compost",
 }
 CATEGORY_INFO = {
     "Compost": "Place in a compost bin or local compost facility.",
@@ -40,43 +35,77 @@ CATEGORY_INFO = {
     "Hazard": "Take to a hazardous waste collection site.",
     "General": "Place in the regular trash bin."
 }
-CATEGORY_LOCATIONS = {
-    "Compost": "Columbus Recycling & Sustainability Center 8001 Pine Grove Way, Columbus, GA 31909",
-    "Recycle": "Recycling Center",
-    "Hazard": "Hazardous Waste Facility",
-    "General": "Trash Bin"
+
+# Alias map: rename long/awkward object names
+ALIAS_MAP = {
+    "batteries - v1 2023-02-21 10-20pm": "Battery",
+    "coral": "PVC pipe"
 }
 
+# Ignore list: objects to skip completely
+IGNORE_LIST = [
+    "nothing",
+    "algae"
+]
 
-model = YOLO("best.pt")
-#what our detections run off
-def detect_objects(image_path):
+# YOLO model paths
+models = ["AlgaeCoral.pt", "Battery.pt", "Cube.pt", "Fruit.pt", "Ram.pt"]
+
+# Confidence cutoffs per model
+MODEL_CUTOFFS = {
+    "AlgaeCoral.pt": 0.7,  
+    "Battery.pt": 0.8,     
+    "Cube.pt": 0.7,        
+    "Fruit.pt": 0.6,       
+    "Ram.pt": 0.5          
+}
+
+# Detection function
+def detect_objects(image_path, model_path):
+    model = YOLO(model_path)
     results = model(image_path)
     detections = []
+
+    # Get cutoff for this model (default to 0.4)
+    cutoff = MODEL_CUTOFFS.get(model_path, 0.4)
+
     for result in results:
-        # Loop through each detected bounding box
         for box in result.boxes:
-            class_id = int(box.cls[0])        # Class ID is cls btw
-            confidence = float(box.conf[0])   
+            class_id = int(box.cls[0])
+            confidence = float(box.conf[0])
             object_name = model.names[class_id]
-            category = WASTE_MAP.get(object_name, "General") # use the dictionary to get the value of the key aka our object
-            if confidence >= 0.4:  
+
+            # Apply alias
+            object_name = ALIAS_MAP.get(object_name, object_name)
+
+            # Skip ignored objects
+            if object_name in IGNORE_LIST:
+                continue
+
+            # Only include if confidence >= cutoff
+            if confidence >= cutoff:
+                category = WASTE_MAP.get(object_name, "General")
                 detections.append({
                     "object": object_name,
                     "confidence": round(confidence, 2),
                     "category": category
                 })
+
     return detections
-#detect_objects("webcam_photo.jpg") ignore this is for testing
+
+# Main Streamlit logic
 if image_file:
     img = Image.open(image_file)
-
-    # To convert PIL Image to numpy array:
     img_array = np.array(img)
-   
-    detections = detect_objects(img_array)
-    #st.write(detections)
-    
+
+    # Run detection across all models
+    detections = []
+    for model_path in models:
+        try:
+            detections.extend(detect_objects(img_array, model_path))
+        except Exception as e:
+            st.error(f"Error loading {model_path}: {e}")
+
     if detections:
         st.subheader("Detected Objects:")
         for idx, item in enumerate(detections, start=1):
@@ -87,7 +116,11 @@ if image_file:
             st.markdown(f"**{idx}. {obj}** ({conf*100:.1f}%) -> **{category}**")
             if st.button(f"How to dispose of {obj}", key=f"{idx}_{obj}"):
                 st.info(CATEGORY_INFO.get(category, "No info available."))
-                response = modelTEXT.generate_content("List 1 local center in " + str(location) + " where I can dispose of " + category + " waste. Do not provide with any extra information, only provide a name of locatoon and an address seperated by a colon .if you cannot find a location, let us know. Do it so every result is in a different line seperate with enter key do not number. If you are not given a location in the sense you are given none for coordinates, say no location found, please click the arrow pointer to enable locations services, do not provide fake details in this case, if the location is weird, assume location is columbus ga")
+                response = modelTEXT.generate_content(
+                    f"List 1 local center in {location} where I can dispose of {category} waste. "
+                    "Do not provide extra info, only name and address separated by colon. "
+                    "If no location, assume columbus ga, affix Dispose at: to your result."
+                )
                 st.info(response.text)
     else:
         st.warning("No objects detected. Try taking another picture.")
