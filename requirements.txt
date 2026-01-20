@@ -1,0 +1,9 @@
+streamlit>=1.24
+ultralytics>=8.0
+pillow>=10.0
+numpy>=1.25
+opencv-python>=4.8
+python-dotenv>=1.1
+streamlit-geolocation>=0.0.7
+google-generativeai>=0.0.5
+tomli>=2.0  # if using toml for keys
