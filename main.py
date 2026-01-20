@@ -23,7 +23,7 @@ st.set_page_config(
 st.title("GASTC test")
 image_file = st.camera_input("Take a picture")
 
-# Waste category mapping
+# Waste category mapping (what waste goes where)
 WASTE_MAP = {
     "PVC pipe": "General Waste",
     "Battery": "Hazardous",
@@ -31,11 +31,20 @@ WASTE_MAP = {
     "fruit": "Compostable",
 }
 
+# Category info (disposal location)
 CATEGORY_INFO = {
-    "Compost": "Place in a compost bin or local compost facility.",
-    "Recycle": "Place in your recycling bin. Check local rules for plastics, paper, and cardboard.",
+    "Compostable": "Place in a compost bin or local compost facility.",
+    "Recyclable": "Place in your recycling bin. Check local rules for plastics, paper, and cardboard.",
     "Hazardous": "Take to a hazardous waste collection site.",
-    "General": "Place in the regular trash bin."
+    "General Waste": "Place in the regular trash bin."
+}
+
+# Bounding box colors (BGR for OpenCV)
+CATEGORY_COLORS = {
+    "Compostable": (0, 200, 0),
+    "Recyclable": (255, 165, 0),
+    "Hazardous": (0, 0, 255),
+    "General Waste": (255, 0, 0)
 }
 
 # Alias & ignore maps
@@ -67,13 +76,6 @@ MODEL_CUTOFFS = {
     "Ram.pt": 0.5
 }
 
-# Bounding box colors (BGR for OpenCV)
-CATEGORY_COLORS = {
-    "Compostable": (0, 200, 0),
-    "Recyclable": (255, 165, 0),
-    "Hazardous": (0, 0, 255),
-    "General Waste": (255, 0, 0)
-}
 
 # Detection function
 def detect_objects(image_array, model_path):
@@ -93,7 +95,7 @@ def detect_objects(image_array, model_path):
             if name in IGNORE_LIST or confidence < cutoff:
                 continue
 
-            category = WASTE_MAP.get(name, "General")
+            category = WASTE_MAP.get(name, "General Waste")
             x1, y1, x2, y2 = box.xyxy[0].cpu().numpy()
 
             detections.append({
@@ -117,36 +119,57 @@ if image_file:
         except Exception as e:
             st.error(f"Error loading {model_path}: {e}")
 
+    #Result image with boxes to show where stuff is
+
     # Convert RGB -> BGR for OpenCV
     draw_img = cv2.cvtColor(img_array, cv2.COLOR_RGB2BGR)
 
     for det in detections:
         x1, y1, x2, y2 = map(int, det["position"])
-        label = f"{det['object']} {int(det['confidence'] * 100)} {det['category']}"
+        label = f"{det['object']}: {int(det['confidence'] * 100)}% confidence, {det['category']}"
         color = CATEGORY_COLORS.get(det["category"], (255, 255, 255))
 
         # Box
         cv2.rectangle(draw_img, (x1, y1), (x2, y2), color, 2)
 
-        # Label background
+        # Measure text
         (w, h), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
-        cv2.rectangle(draw_img, (x1, y1 - h - 6), (x1 + w + 4, y1), color, -1)
+
+        # Clamp X so text stays on screen
+        text_x = max(0, min(x1, draw_img.shape[1] - w - 4))
+
+        # Prefer above box, else put below
+        text_y = y1 - 6
+        if text_y - h < 0:
+            text_y = y2 + h + 6
+
+        # Label background
+        cv2.rectangle(
+        draw_img,
+        (text_x, text_y - h - 4),
+        (text_x + w + 4, text_y),
+        color,
+        -1
+        )
 
         # Label text
         cv2.putText(
-            draw_img,
-            label,
-            (x1 + 2, y1 - 4),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            0.5,
-            (255, 255, 255),
-            1,
-            cv2.LINE_AA
+        draw_img,
+        label,
+        (text_x + 2, text_y - 2),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.5,
+        (255, 255, 255),
+        1,
+        cv2.LINE_AA
         )
+
 
     # Convert BGR -> RGB for Streamlit
     draw_img = cv2.cvtColor(draw_img, cv2.COLOR_BGR2RGB)
     st.image(draw_img, caption="Processed Image with Detections", width=700)
+
+    #Buttons to show disposal location stuff.
 
     if detections:
         st.subheader("Detected Objects")
