@@ -1,5 +1,5 @@
 import streamlit as st
-from streamlit_geolocation import streamlit_geolocation
+from streamlit_geolocation import streamlit_geolocation  # (imported but not currently used)
 from ultralytics import YOLO
 from PIL import Image
 import numpy as np
@@ -9,8 +9,9 @@ import os
 import cv2
 
 # --------------------------------------------------
-# page setup
+# PAGE SETUP
 # --------------------------------------------------
+# Sets browser tab title, icon, and layout
 st.set_page_config(
     page_title="SmartSort",
     page_icon="🚮",
@@ -18,30 +19,38 @@ st.set_page_config(
 )
 
 # --------------------------------------------------
-# env + apis
+# ENVIRONMENT VARIABLES + APIS
 # --------------------------------------------------
+# Load API keys from keys.env
 load_dotenv("keys.env")
+
+# Configure Gemini API for text generation
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 modelTEXT = genai.GenerativeModel("gemini-2.5-flash-lite")
 
 # --------------------------------------------------
-# session state
+# SESSION STATE
 # --------------------------------------------------
+# Tracks which page the user is on
 if "page" not in st.session_state:
     st.session_state.page = "home"
 
+# Stores the captured image
 if "image" not in st.session_state:
     st.session_state.image = None
 
+# Stores final filtered detections
 if "detections" not in st.session_state:
     st.session_state.detections = []
 
+# Stores which object’s disposal info is currently open
 if "active_info" not in st.session_state:
     st.session_state.active_info = None
 
 # --------------------------------------------------
-# DATA (UNCHANGED)
+# DATA (WASTE CLASSIFICATION MAPS)
 # --------------------------------------------------
+# Maps detected object → disposal category
 WASTE_MAP = {
     "PVC pipe": "General Waste",
     "Battery": "Hazardous",
@@ -51,9 +60,9 @@ WASTE_MAP = {
     "Tin Can": "Recyclable",
     "Apple": "Compostable",
     "cell phone": "Hazardous"
-
 }
 
+# Text explanations for each category
 CATEGORY_INFO = {
     "Compostable": "Place in a compost bin or local compost facility.",
     "Recyclable": "Place in your recycling bin. Check local rules for plastics, paper, and cardboard.",
@@ -61,6 +70,7 @@ CATEGORY_INFO = {
     "General Waste": "Place in the regular trash bin."
 }
 
+# Colors used for bounding boxes (BGR format for OpenCV)
 CATEGORY_COLORS = {
     "Compostable": (0, 128, 129),
     "Recyclable": (0, 50, 4),
@@ -68,6 +78,7 @@ CATEGORY_COLORS = {
     "General Waste": (255, 0, 0)
 }
 
+# Normalizes YOLO model labels → your standard object names
 ALIAS_MAP = {
     "batteries - v1 2023-02-21 10-20pm": "Battery",
     "coral": "PVC pipe",
@@ -82,8 +93,20 @@ ALIAS_MAP = {
     "tin can": "Tin Can"
 }
 
-IGNORE_LIST = ["Nothing", "algae", "person", "dining table"]
+# Classes that should be ignored entirely
+IGNORE_LIST = [
+    "Nothing",
+    "algae",
+    "person",
+    "dining table",
+    "bed",
+    "cup"
+]
 
+# --------------------------------------------------
+# YOLO MODELS
+# --------------------------------------------------
+# All models that will run inference on the image
 models = [
     "AlgaeCoral.pt",
     "Battery.pt",
@@ -94,19 +117,21 @@ models = [
     "yolo11n.pt"
 ]
 
+# Model priority (higher = wins if boxes overlap)
 MODEL_PRIORITY = {
-    "Battery.pt": 6,
+    "Battery.pt": 0,
     "Bottle.pt": 5,
     "Fruit.pt": 4,
     "Cube.pt": 3,
-    "Ram.pt": 2,
+    "Ram.pt": 6,
     "AlgaeCoral.pt": 1,
-    "yolo11n.pt": 0
+    "yolo11n.pt": 7
 }
 
+# Confidence cutoffs per model
 MODEL_CUTOFFS = {
     "AlgaeCoral.pt": 0.8,
-    "Battery.pt": 0.8,
+    "Battery.pt": 0.9,
     "Cube.pt": 0.5,
     "Fruit.pt": 0.2,
     "Ram.pt": 0.5,
@@ -115,8 +140,9 @@ MODEL_CUTOFFS = {
 }
 
 # --------------------------------------------------
-# IoU + NMS (REAL FIX FOR OVERLAPPING BOXES)
+# IOU + NON-MAX SUPPRESSION
 # --------------------------------------------------
+# Computes overlap ratio between two bounding boxes
 def iou(boxA, boxB):
     xA = max(boxA[0], boxB[0])
     yA = max(boxA[1], boxB[1])
@@ -125,10 +151,11 @@ def iou(boxA, boxB):
     inter = max(0, xB - xA) * max(0, yB - yA)
     if inter == 0:
         return 0.0
-    areaA = (boxA[2]-boxA[0])*(boxA[3]-boxA[1])
-    areaB = (boxB[2]-boxB[0])*(boxB[3]-boxB[1])
+    areaA = (boxA[2] - boxA[0]) * (boxA[3] - boxA[1])
+    areaB = (boxB[2] - boxB[0]) * (boxB[3] - boxB[1])
     return inter / (areaA + areaB - inter)
 
+# Removes overlapping boxes, keeping higher-priority detections
 def non_max_suppression(detections, thresh=0.45):
     detections = sorted(
         detections,
@@ -142,8 +169,9 @@ def non_max_suppression(detections, thresh=0.45):
     return kept
 
 # --------------------------------------------------
-# detection
+# OBJECT DETECTION
 # --------------------------------------------------
+# Runs YOLO inference for a single model
 def detect_objects(image_array, model_path):
     model = YOLO(model_path)
     cutoff = MODEL_CUTOFFS.get(model_path, 0.4)
@@ -173,52 +201,53 @@ def detect_objects(image_array, model_path):
     return out
 
 # --------------------------------------------------
-# draw boxes
+# DRAW BOUNDING BOXES
 # --------------------------------------------------
+# Draws boxes and labels on the image
 def draw_boxes(image, detections):
     img = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
-
 
     for d in detections:
         x1, y1, x2, y2 = d["box"]
         label = f"{d['object']} {d['confidence']*100:.1f}%"
         color = CATEGORY_COLORS.get(d["category"], (200, 200, 200))
 
-
         cv2.rectangle(img, (x1, y1), (x2, y2), color, 2)
         (tw, th), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
         ty = y1 - 8 if y1 - th - 8 > 0 else y2 + th + 8
         cv2.rectangle(img, (x1, ty - th - 4), (x1 + tw + 6, ty), color, -1)
-        cv2.putText(img, label, (x1 + 3, ty - 4), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
-
+        cv2.putText(img, label, (x1 + 3, ty - 4),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
 
     return cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
-
 # --------------------------------------------------
-# navigation helpers (FIX DOUBLE CLICK)
+# NAVIGATION HELPERS
 # --------------------------------------------------
+# Changes page safely without double-click issues
 def go(page):
     st.session_state.page = page
 
+# Stores which object’s disposal info to show
 def set_info(obj, cat):
     st.session_state.active_info = (obj, cat)
 
 # --------------------------------------------------
-# HOME
+# HOME PAGE
 # --------------------------------------------------
 if st.session_state.page == "home":
     st.title("🚮 SmartSort")
-    st.header("Take a photo. We tell you where it goes.",text_alignment="center")
-    st.space(size="large")
+    st.header("Take a photo. We tell you where it goes.", text_alignment="center")
+    st.image("trash.png", use_container_width=True)
     st.button("Proceed", use_container_width=True, on_click=go, args=("camera",))
 
 # --------------------------------------------------
-# CAMERA
+# CAMERA PAGE
 # --------------------------------------------------
 elif st.session_state.page == "camera":
     st.header("🚮 Smart Sort")
-    st.header("Take a photo",text_alignment="center")
+    st.header("Take a photo", text_alignment="center")
+
     image_file = st.camera_input("")
 
     if image_file:
@@ -233,17 +262,19 @@ elif st.session_state.page == "camera":
                     all_dets.extend(detect_objects(arr, m))
                 except Exception as e:
                     st.warning(f"{m}: {e}")
+
+            # Apply non-max suppression to remove overlaps
             st.session_state.detections = non_max_suppression(all_dets)
             st.session_state.page = "results"
 
         st.button("Continue", use_container_width=True, on_click=process)
 
 # --------------------------------------------------
-# RESULTS
+# RESULTS PAGE
 # --------------------------------------------------
 elif st.session_state.page == "results":
     st.header("🚮 Smart Sort")
-    st.header("Results",text_alignment="center")
+    st.header("Results", text_alignment="center")
 
     boxed = draw_boxes(
         np.array(st.session_state.image),
@@ -264,6 +295,9 @@ elif st.session_state.page == "results":
             on_click=set_info,
             args=(obj, cat)
         )
+
+    if st.session_state.detections == []:
+        st.warning("No objects detected. Try taking another photo with better lighting or a clearer view of the item.")
 
     if st.session_state.active_info:
         obj, cat = st.session_state.active_info
