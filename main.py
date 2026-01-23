@@ -52,14 +52,36 @@ if "active_info" not in st.session_state:
 # --------------------------------------------------
 # Maps detected object → disposal category
 WASTE_MAP = {
-    "PVC pipe": "General Waste",
-    "Battery": "Hazardous",
+    "pvc pipe": "General Waste",
+    "battery": "Hazardous",
     "cube": "General Waste",
-    "Banana": "Compostable",
-    "Plastic Bottle": "Recyclable",
-    "Tin Can": "Recyclable",
-    "Apple": "Compostable",
-    "cell phone": "Hazardous"
+    "banana": "Compostable",
+    "plastic bottle": "Recyclable",
+    "tin can": "Recyclable",
+    "apple": "Compostable",
+    "cell phone": "Hazardous",
+    "plastic bag": "General Waste",
+    "paper": "Recyclable",
+    "cardboard": "Recyclable",
+    "food container": "General Waste",
+    "styrofoam": "General Waste",
+    "glass bottle": "Recyclable",
+    "wine bottle": "Recyclable",
+    "aluminum can": "Recyclable",
+    "can": "Recyclable",
+    "banana peel": "Compostable",
+    "orange": "Compostable",
+    "apple core": "Compostable",
+    "cup": "General Waste",
+    "fork": "General Waste",
+    "spoon": "General Waste",
+    "knife": "General Waste",
+    "laptop": "Hazardous",
+    "remote control": "Hazardous",
+    "keyboard": "Hazardous",
+    "mouse": "Hazardous",
+    "bottle": "Recyclable",
+    
 }
 
 # Text explanations for each category
@@ -90,18 +112,28 @@ ALIAS_MAP = {
     "glass-normal": "Tin Can",
     "glass-wine": "Tin Can",
     "gym bottle": "Tin Can",
-    "tin can": "Tin Can"
+    "tin can": "Tin Can",
+    "remote": "Cell Phone",
+    "non-valuabe waste: batteries": "Battery"
 }
 
 # Classes that should be ignored entirely
 IGNORE_LIST = [
-    "Nothing",
+    "nothing",
     "algae",
     "person",
-    "dining table",
-    "bed",
-    "cup"
+    "dog", "cat", "bird", "horse",
+    "car", "bus", "truck", "motorcycle", "bicycle",
+    "chair", "sofa", "bed", "table", "dining table", "desk", "cabinet/shelf"
+    "tv", "monitor",
+    "tree", "plant", "grass",
+    "road", "building", "wall", "window", "door",
+    "sky", "cloud",
+    "backpack", "handbag", "suitcase", 
+    "balloon",
+    "hat", "book", "sneakers", "other shoes"
 ]
+
 
 # --------------------------------------------------
 # YOLO MODELS
@@ -109,35 +141,43 @@ IGNORE_LIST = [
 # All models that will run inference on the image
 models = [
     "AlgaeCoral.pt",
-    "Battery.pt",
+    "Battery2.pt",
     "Cube.pt",
     "Fruit.pt",
     "Ram.pt",
     "Bottle.pt",
-    "yolo11n.pt"
+    "yolo11n.pt",
+    "obj365.pt"
 ]
 
 # Model priority (higher = wins if boxes overlap)
 MODEL_PRIORITY = {
-    "Battery.pt": 0,
+    "Battery2.pt": 3,
     "Bottle.pt": 5,
     "Fruit.pt": 4,
-    "Cube.pt": 3,
+    "Cube.pt": 0,
     "Ram.pt": 6,
     "AlgaeCoral.pt": 1,
-    "yolo11n.pt": 7
+    "yolo11n.pt": 7,
+    "obj365.pt": 8
 }
 
 # Confidence cutoffs per model
 MODEL_CUTOFFS = {
     "AlgaeCoral.pt": 0.8,
-    "Battery.pt": 0.9,
+    "Battery2.pt": 0.7,
     "Cube.pt": 0.5,
     "Fruit.pt": 0.2,
     "Ram.pt": 0.5,
     "Bottle.pt": 0.7,
-    "yolo11n.pt": 0.4
+    "yolo11n.pt": 0.4,
+    "obj365.pt": 0.4
 }
+#obj to do
+# Recycle : Coke can, water bottle
+# Compost : Apple, banana
+# Hazard : Cell phone, battery
+# General : PVC pipe, cube
 
 # --------------------------------------------------
 # IOU + NON-MAX SUPPRESSION
@@ -186,9 +226,13 @@ def detect_objects(image_array, model_path):
                 continue
 
             cls = int(box.cls[0])
-            name = ALIAS_MAP.get(model.names[cls], model.names[cls])
-            if name in IGNORE_LIST:
+
+            raw_name = model.names[cls].lower().strip()
+            name = ALIAS_MAP.get(raw_name, raw_name)
+
+            if name.lower() in IGNORE_LIST:
                 continue
+
 
             x1, y1, x2, y2 = box.xyxy[0].cpu().numpy()
             out.append({
@@ -302,6 +346,12 @@ elif st.session_state.page == "results":
     if st.session_state.active_info:
         obj, cat = st.session_state.active_info
         st.info(CATEGORY_INFO.get(cat))
+        response = modelTEXT.generate_content(
+                    f"List 1 local center in columbus, ga where I can dispose of {d['category']} waste. "
+                    "Only return name and address separated by colon. prefix Dispose at:"
+                )
+        st.info(response.text)
+
 
     st.button("Take another photo", use_container_width=True, on_click=go, args=("camera",))
     st.button("Return to home", use_container_width=True, on_click=go, args=("home",))
