@@ -4,7 +4,7 @@ from ultralytics import YOLO
 model = YOLO("yolo11n.pt")
 
 model.train(
-    data="dataset/Water/data.yaml",   # Yaml file
+    data="dataset/Bottle/data.yaml",   # Yaml file
     imgsz=640,
     epochs=20,                        # this makes it longer
     batch=16,                          # idk
@@ -16,7 +16,7 @@ model.train(
     patience=5,                       # early stopping works now
 
     project="runs/train",
-    name="Water model",
+    name="Bottle model",
     exist_ok=True,
 
     cache=True,                       # speeds up CPU training
