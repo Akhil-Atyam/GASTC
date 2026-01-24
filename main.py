@@ -29,7 +29,7 @@ genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 modelTEXT = genai.GenerativeModel("gemini-2.5-flash-lite")
 
 # --------------------------------------------------
-# SESSION STATE
+# SESSION STATE (constant variables basically)
 # --------------------------------------------------
 # Tracks which page the user is on
 if "page" not in st.session_state:
@@ -81,6 +81,9 @@ WASTE_MAP = {
     "keyboard": "Hazardous",
     "mouse": "Hazardous",
     "bottle": "Recyclable",
+    "Tin Can": "Recyclable",
+    "cup": "Recyclable"
+
     
 }
 
@@ -100,7 +103,7 @@ CATEGORY_COLORS = {
     "General Waste": (255, 0, 0)
 }
 
-# Normalizes YOLO model labels → your standard object names
+# Change weird dataset names to readable ones
 ALIAS_MAP = {
     "batteries - v1 2023-02-21 10-20pm": "Battery",
     "coral": "PVC pipe",
@@ -114,7 +117,10 @@ ALIAS_MAP = {
     "gym bottle": "Tin Can",
     "tin can": "Tin Can",
     "remote": "Cell Phone",
-    "non-valuabe waste: batteries": "Battery"
+    "non-valuabe waste: batteries": "Battery",
+    "canned" : "Tin Can",
+    "cup" : "Water Bottle"
+
 }
 
 # Classes that should be ignored entirely
@@ -124,24 +130,23 @@ IGNORE_LIST = [
     "person",
     "dog", "cat", "bird", "horse",
     "car", "bus", "truck", "motorcycle", "bicycle",
-    "chair", "sofa", "bed", "table", "dining table", "desk", "cabinet/shelf"
+    "chair", "sofa", "bed", "table", "dining table", "desk", "cabinet/shelf", "Cabinet/Shelf"
     "tv", "monitor",
     "tree", "plant", "grass",
     "road", "building", "wall", "window", "door",
     "sky", "cloud",
     "backpack", "handbag", "suitcase", 
     "balloon",
-    "hat", "book", "sneakers", "other shoes"
+    "hat", "book", "sneakers", "other shoes", "lamp", "fan", "bench", "power outlet", "tv"
 ]
 
 
 # --------------------------------------------------
 # YOLO MODELS
 # --------------------------------------------------
-# All models that will run inference on the image
 models = [
     "AlgaeCoral.pt",
-    "Battery2.pt",
+    #"Battery.pt",
     "Cube.pt",
     "Fruit.pt",
     "Ram.pt",
@@ -150,9 +155,9 @@ models = [
     "obj365.pt"
 ]
 
-# Model priority (higher = wins if boxes overlap)
+# Model priority (higher = better)
 MODEL_PRIORITY = {
-    "Battery2.pt": 3,
+    #"Battery.pt": 3,
     "Bottle.pt": 5,
     "Fruit.pt": 4,
     "Cube.pt": 0,
@@ -165,7 +170,7 @@ MODEL_PRIORITY = {
 # Confidence cutoffs per model
 MODEL_CUTOFFS = {
     "AlgaeCoral.pt": 0.8,
-    "Battery2.pt": 0.7,
+    #"Battery.pt": 0.7,
     "Cube.pt": 0.5,
     "Fruit.pt": 0.2,
     "Ram.pt": 0.5,
@@ -175,9 +180,9 @@ MODEL_CUTOFFS = {
 }
 #obj to do
 # Recycle : Coke can, water bottle
-# Compost : Apple, banana
-# Hazard : Cell phone, battery
-# General : PVC pipe, cube
+# Compost : Apple, banana done done
+# Hazard : Cell phone, battery cell phone done
+# General : PVC pipe, cube  cube done pvc done 
 
 # --------------------------------------------------
 # IOU + NON-MAX SUPPRESSION
@@ -268,7 +273,7 @@ def draw_boxes(image, detections):
 # --------------------------------------------------
 # NAVIGATION HELPERS
 # --------------------------------------------------
-# Changes page safely without double-click issues
+# Changes page safely without double-click issues (session state bug on docs)
 def go(page):
     st.session_state.page = page
 
