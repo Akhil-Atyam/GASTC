@@ -330,10 +330,23 @@ elif st.session_state.page == "results":
         st.session_state.detections
     )
     st.image(boxed, use_container_width=True)
+    
+    counts={
+        "Compostable":0,
+        "Recyclable":0,
+        "Hazardous":0,
+        "General Waste":0
+    }
 
-    grouped = {}
+    grouped={}
     for d in st.session_state.detections:
-        grouped.setdefault(d["object"], []).append(d)
+        grouped.setdefault(d["object"],[]).append(d)
+        counts[d["category"]]+=1
+    st.write(f"Item Counts and keys")
+    st.write(f"🟩 Recyclable: {counts['Recyclable']}")
+    st.write(f"🟨 Compostable: {counts['Compostable']}")
+    st.write(f"🟥 Hazardous: {counts['Hazardous']}")
+    st.write(f"🟦 General Waste: {counts['General Waste']}")
 
     for obj, items in grouped.items():
         cat = items[0]["category"]

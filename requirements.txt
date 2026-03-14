@@ -18,4 +18,3 @@ google-generativeai>=0.3.2
 
 # env support (you CAN keep using .env locally)
 python-dotenv>=1.0.0
-groq 
